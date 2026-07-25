@@ -14,49 +14,51 @@ export default async function handler(req: any, res: any) {
     const ai = new GoogleGenAI({ apiKey });
     const body = req.body || {};
 
-    // 1. 프론트엔드가 보낸 요청 구조 파악
-    let contents = body.contents;
+    // 1. 프론트엔드가 보낸 데이터 위치 유연하게 추적
+    let contents = body.contents || body.prompt || body.message || body.data;
     let config = body.config || {};
 
-    // systemInstruction이 root 레벨에 있을 경우 config로 통합
     if (body.systemInstruction && !config.systemInstruction) {
       config.systemInstruction = body.systemInstruction;
     }
 
-    // 2. contents가 단순 텍스트로 올 경우 규격 처리
-    if (typeof body === 'string') {
+    // 2. 만약 body 자체가 바로 contents 배열/객체로 넘어온 경우
+    if (!contents && (Array.isArray(body) || typeof body === 'object')) {
       contents = body;
-    } else if (body.prompt && !contents) {
-      contents = body.prompt;
     }
 
-    // 3. parts 내부 검증 (빈 inlineData나 data 필드가 없는 part가 들어가지 않도록 정제)
+    // 3. contents가 완전히 비어있을 때를 대비한 예외 방지 fallback
+    if (!contents || (Array.isArray(contents) && contents.length === 0)) {
+      contents = "수업 설계를 생성해 주세요.";
+    }
+
+    // 4. contents[0].parts 내의 빈 inlineData/data 객체 필터링
     if (Array.isArray(contents)) {
       contents = contents.map((c: any) => {
         if (c && Array.isArray(c.parts)) {
-          const cleanedParts = c.parts.filter((p: any) => {
-            if (p.inlineData) {
-              // inlineData에 data 속성이 없거나 비어 있으면 제외
-              return p.inlineData.data && p.inlineData.data.trim() !== '';
+          const validParts = c.parts.filter((p: any) => {
+            // inlineData 구조에서 data가 비어있는 잘못된 파트 제거
+            if (p.inlineData && (!p.inlineData.data || p.inlineData.data.trim() === '')) {
+              return false;
             }
             return true;
           });
-          return { ...c, parts: cleanedParts.length > 0 ? cleanedParts : [{ text: '' }] };
+          return { ...c, parts: validParts.length > 0 ? validParts : [{ text: '설계 요청' }] };
         }
         return c;
       });
     }
 
-    // 4. Gemini API 호출 (aiStudio 규격 원형 유지)
+    // 5. Gemini API 호출
     const response = await ai.models.generateContent({
       model: body.model || 'gemini-2.5-flash',
       contents: contents,
-      config: config,
+      config: Object.keys(config).length > 0 ? config : undefined,
     });
 
     return res.status(200).json({ text: response.text });
   } catch (error: any) {
-    console.error('Gemini API Error:', error);
+    console.error('Gemini API Error Details:', error);
     return res.status(500).json({ error: error.message || 'AI 생성 처리 실패' });
   }
 }
