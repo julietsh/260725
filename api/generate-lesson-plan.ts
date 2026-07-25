@@ -14,39 +14,49 @@ export default async function handler(req: any, res: any) {
     const ai = new GoogleGenAI({ apiKey });
     const body = req.body || {};
 
-    // 1. 프론트엔드에서 넘어온 payload 규격 분석 및 추출
-    let contents = body.contents || body.prompt || body;
-    let systemInstruction = body.systemInstruction || body.system_instruction || body.config?.systemInstruction;
+    // 1. 프론트엔드가 보낸 요청 구조 파악
+    let contents = body.contents;
+    let config = body.config || {};
 
-    // 2. contents 구조가 객체/배열 형태라면 그대로 사용하고, 그 외에는 객체로 정제
-    if (typeof contents === 'string') {
-      contents = [{ parts: [{ text: contents }] }];
-    } else if (!Array.isArray(contents) && contents.parts) {
-      contents = [contents];
+    // systemInstruction이 root 레벨에 있을 경우 config로 통합
+    if (body.systemInstruction && !config.systemInstruction) {
+      config.systemInstruction = body.systemInstruction;
     }
 
-    // 3. 빈 parts가 전달되는 현상 방지 필터링
+    // 2. contents가 단순 텍스트로 올 경우 규격 처리
+    if (typeof body === 'string') {
+      contents = body;
+    } else if (body.prompt && !contents) {
+      contents = body.prompt;
+    }
+
+    // 3. parts 내부 검증 (빈 inlineData나 data 필드가 없는 part가 들어가지 않도록 정제)
     if (Array.isArray(contents)) {
-      contents = contents.map((item: any) => {
-        if (item.parts && Array.isArray(item.parts)) {
-          // data/text 필드가 유효한 part만 선별
-          const validParts = item.parts.filter((p: any) => p.text || p.inlineData || p.fileData);
-          return { ...item, parts: validParts.length > 0 ? validParts : [{ text: '' }] };
+      contents = contents.map((c: any) => {
+        if (c && Array.isArray(c.parts)) {
+          const cleanedParts = c.parts.filter((p: any) => {
+            if (p.inlineData) {
+              // inlineData에 data 속성이 없거나 비어 있으면 제외
+              return p.inlineData.data && p.inlineData.data.trim() !== '';
+            }
+            return true;
+          });
+          return { ...c, parts: cleanedParts.length > 0 ? cleanedParts : [{ text: '' }] };
         }
-        return item;
+        return c;
       });
     }
 
-    // 4. Gemini API 호출
+    // 4. Gemini API 호출 (aiStudio 규격 원형 유지)
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: body.model || 'gemini-2.5-flash',
       contents: contents,
-      config: systemInstruction ? { systemInstruction } : undefined,
+      config: config,
     });
 
     return res.status(200).json({ text: response.text });
   } catch (error: any) {
-    console.error('Gemini API Call Error:', error);
-    return res.status(500).json({ error: error.message || 'AI 생성 처리 중 오류가 발생했습니다.' });
+    console.error('Gemini API Error:', error);
+    return res.status(500).json({ error: error.message || 'AI 생성 처리 실패' });
   }
 }
