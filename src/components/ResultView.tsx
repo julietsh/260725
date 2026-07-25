@@ -80,12 +80,17 @@ export const ResultView: React.FC<ResultViewProps> = ({
       <div className="bg-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-md border border-slate-800">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div>
-            <div className="flex items-center space-x-2 text-xs font-semibold text-blue-400 mb-1">
-              <span className="px-2 py-0.5 rounded bg-blue-900/80 border border-blue-700/50">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-blue-400 mb-1">
+              <span className="px-2 py-0.5 rounded bg-blue-900/80 border border-blue-700/50 text-blue-200">
                 {planData.inputParams.achievementStandardCode || '성취기준'}
               </span>
               <span>{planData.inputParams.learnerPersona.targetGrade}</span>
               <span>• {planData.inputParams.lessonCount}차시 설계</span>
+              {planData.inputParams.targetAchievementLevel && (
+                <span className="px-2 py-0.5 rounded bg-indigo-900/80 text-indigo-200 border border-indigo-700/50 font-medium">
+                  {planData.inputParams.targetAchievementLevel.split(':')[0]}
+                </span>
+              )}
             </div>
             <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
               {planData.inputParams.achievementStandardContent}

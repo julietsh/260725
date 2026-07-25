@@ -39,6 +39,8 @@ export default function App() {
   const handleGeneratePlan = async (params: {
     achievementStandardCode: string;
     achievementStandardContent: string;
+    targetAchievementLevel?: string;
+    selectedLevelText?: string;
     learnerPersona: LearnerPersona;
     lessonCount: number;
     assessmentMethod: string;

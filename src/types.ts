@@ -68,6 +68,8 @@ export interface LessonPlanData {
   inputParams: {
     achievementStandardCode: string;
     achievementStandardContent: string;
+    targetAchievementLevel?: string;
+    selectedLevelText?: string;
     learnerPersona: LearnerPersona;
     lessonCount: number;
     assessmentMethod: string;
@@ -80,10 +82,19 @@ export interface LessonPlanData {
   complementaryQuestions: ComplementaryQuestions;
 }
 
+export interface AchievementLevels {
+  A: string;
+  B: string;
+  C: string;
+}
+
 export interface PresetStandard {
+  category: string;
   subject: string;
   code: string;
   content: string;
   defaultLessons: number;
   defaultAssessment: string;
+  levels: AchievementLevels;
 }
+

@@ -149,6 +149,8 @@ app.post("/api/generate-lesson-plan", async (req, res) => {
     const {
       achievementStandardCode,
       achievementStandardContent,
+      targetAchievementLevel = "전체 (A/B/C)",
+      selectedLevelText = "",
       learnerPersona,
       lessonCount = 2,
       assessmentMethod = "자기/동료평가 + 수행평가",
@@ -162,28 +164,34 @@ app.post("/api/generate-lesson-plan", async (req, res) => {
     const ai = getGeminiClient();
 
     const systemInstruction = `
-당신은 대한민국 2022 개정 교육과정에 정통한 최고의 수업 설계 및 교육평가 수석 수석교사(AI 수석연구원)입니다.
-교사가 성취기준과 학습자 페르소나를 입력하면, 성취기준을 엄밀히 분해하고 목표-활동-평가의 1:1 수직 정합성(Alignment)을 완벽하게 검증하여 차시별 설계 카드, 수행 루브릭 초안, 보완 발문을 생성합니다.
+당신은 대한민국 2022 개정 교육과정 '진로와 직업' 과목에 정통한 수석교사이자 AI 교육과정 연구원입니다.
+선택된 중학교 '진로와 직업' 성취기준 및 해당 성취기준의 공식 [성취수준 A, B, C]을 바탕으로, 목표-활동-평가의 1:1 수직 정합성(Alignment)이 완벽한 차시별 수업 설계안과 수행 루브릭을 작성합니다.
 
 [설계 및 검증 원칙]
-1. 성취기준 분해: 입력된 성취기준을 '이해(Knowledge)', '적용(Skill/Practice)', '설명(Attitude/Reflection)' 세 차원으로 명확히 분석하십시오.
-2. 정합성(Alignment) 엄수:
-   - [차시 목표]는 성취기준에서 도출되며 명확한 행위 동사(~할 수 있다)로 작성합니다.
+1. 성취기준 분해: 입력된 진로 성취기준을 '이해(Knowledge)', '적용(Skill/Practice)', '설명(Attitude/Reflection)' 세 차원으로 명확히 분석하십시오.
+2. 성취수준 A, B, C 준수:
+   - 공식 교육과정에 명시된 성취수준 A(상), B(중), C(하) 명세(${selectedLevelText || "A, B, C 수준 명세"})를 수업 활동 및 수행 루브릭의 개별 요소와 정확히 연동합니다.
+   - 타겟 선택 성취수준(${targetAchievementLevel})에 주안점을 두되, 상/중/하 학생 모두가 각자의 도달 목표에 맞춰 성장을 도모할 수 있도록 스몰스텝 및 심화 과제를 유기적으로 구성합니다.
+3. 정합성(Alignment) 엄수:
+   - [차시 목표]는 성취기준 및 성취수준에서 도출되며 명확한 행위 동사(~할 수 있다)로 작성합니다.
    - [차시 활동]은 목표를 달성하기 위해 필요한 행동을 직접 실행하는 단계적 경험(도입-전개-정리)이어야 합니다.
    - [평가 계획]은 목표가 실제로 달성되었는지를 직접 측정할 수 있는 평가 방식과 구체적 성취 기준이어야 합니다.
-3. 학습자 페르소나 반영:
+4. 학습자 페르소나 반영:
    - 대상: ${learnerPersona?.targetGrade || "중학교 1학년 (남녀 공학)"}
    - 진로 성숙도: ${learnerPersona?.careerMaturity || "상위 20%는 진로 관심도 높음 / 하위 30%는 무관심 및 '어차피 꿈이 없어요' 태도"}
    - 오개념 및 특성: ${learnerPersona?.learningTraitsAndMisconceptions || "'진로=직업'으로 단순 인식, 장래희망 미정 시 불안/포기 극단적 양상"}
    - 도달 목표: ${learnerPersona?.attainmentGoal || "자신의 성향/관심사를 진로 탐색의 출발점으로 이해, 직업 미결정해도 다양한 진로 경로 탐색 태도 형성"}
-   - 하위 30% 학생들이 소외되거나 부담을 느끼지 않도록 스몰스텝(Small Steps), 부담 없는 표현 방식(좋아하는 일상 키워드 찾기 등)을 활동과 질문에 반드시 녹여내야 합니다.
-   - 상위 20% 학생들을 위한 자기주도 심화 탐색 과제도 페르소나 지원란에 구체적으로 명시하세요.
-4. 모든 문장은 현장 교사들이 5분 내 다듬어 바로 수업 및 평가계획서에 반영할 수 있을 정도로 완성도 높게 한국어로 작성합니다.
+   - 하위 30%(성취수준 C 대상) 학생들이 소외되거나 부담을 느끼지 않도록 스몰스텝(Small Steps)과 친근한 활동지를 구성합니다.
+   - 상위 20%(성취수준 A 대상) 학생들을 위한 주도적 심화 탐색 과제도 명확히 명시합니다.
+5. 모든 문장은 현장 교사가 5분 내 다듬어 바로 수업 및 평가계획서에 반영할 수 있도록 완성도 높게 한국어로 작성합니다.
     `.trim();
 
     const prompt = `
 [입력 데이터]
 - 성취기준 코드 및 내용: ${achievementStandardCode || ''} ${achievementStandardContent}
+- 성취수준 타겟 설정: ${targetAchievementLevel}
+- 공식 성취기준별 성취수준 (A, B, C):
+  ${selectedLevelText || '공식 성취수준 A, B, C 반영'}
 - 희망 차시 수: ${lessonCount}차시
 - 희망 평가 방식: ${assessmentMethod}
 - 교사 추가 요청사항: ${additionalNotes || '없음'}
