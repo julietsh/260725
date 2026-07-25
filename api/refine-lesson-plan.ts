@@ -128,63 +128,29 @@ export default async function handler(req: any, res: any) {
     }
 
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-    const {
-      achievementStandardCode = '',
-      achievementStandardContent,
-      targetAchievementLevel = '전체 (A/B/C)',
-      selectedLevelText = '',
-      learnerPersona,
-      lessonCount = 2,
-      assessmentMethod = '자기/동료평가 + 수행평가',
-      additionalNotes = '',
-    } = body;
+    const { currentPlan, instruction, sectionTarget } = body;
 
-    if (!achievementStandardContent) {
-      return res.status(400).json({ success: false, error: '성취기준 내용을 입력해 주세요.' });
+    if (!currentPlan || !instruction) {
+      return res.status(400).json({ success: false, error: '기존 설계안과 수정 요청사항이 필요합니다.' });
     }
 
     const ai = new GoogleGenAI({ apiKey });
 
     const systemInstruction = `
-당신은 대한민국 2022 개정 교육과정 '진로와 직업' 과목에 정통한 수석교사이자 AI 교육과정 연구원입니다.
-선택된 중학교 '진로와 직업' 성취기준 및 해당 성취기준의 공식 [성취수준 A, B, C]을 바탕으로, 목표-활동-평가의 1:1 수직 정합성(Alignment)이 완벽한 차시별 수업 설계안과 수행 루브릭을 작성합니다.
-
-[설계 및 검증 원칙]
-1. 성취기준 분해: 입력된 진로 성취기준을 '이해(Knowledge)', '적용(Skill/Practice)', '설명(Attitude/Reflection)' 세 차원으로 명확히 분석하십시오.
-2. 성취수준 A, B, C 준수:
-   - 공식 교육과정에 명시된 성취수준 A(상), B(중), C(하) 명세(${selectedLevelText || 'A, B, C 수준 명세'})를 수업 활동 및 수행 루브릭의 개별 요소와 정확히 연동합니다.
-   - 타겟 선택 성취수준(${targetAchievementLevel})에 주안점을 두되, 상/중/하 학생 모두가 각자의 도달 목표에 맞춰 성장을 도모할 수 있도록 스몰스텝 및 심화 과제를 유기적으로 구성합니다.
-3. 정합성(Alignment) 엄수:
-   - [차시 목표]는 성취기준 및 성취수준에서 도출되며 명확한 행위 동사(~할 수 있다)로 작성합니다.
-   - [차시 활동]은 목표를 달성하기 위해 필요한 행동을 직접 실행하는 단계적 경험(도입-전개-정리)이어야 합니다.
-   - [평가 계획]은 목표가 실제로 달성되었는지를 직접 측정할 수 있는 평가 방식과 구체적 성취 기준이어야 합니다.
-4. 학습자 페르소나 반영:
-   - 대상: ${learnerPersona?.targetGrade || '중학교 1학년 (남녀 공학)'}
-   - 진로 성숙도: ${learnerPersona?.careerMaturity || "상위 20%는 진로 관심도 높음 / 하위 30%는 무관심 및 '어차피 꿈이 없어요' 태도"}
-   - 오개념 및 특성: ${learnerPersona?.learningTraitsAndMisconceptions || "'진로=직업'으로 단순 인식, 장래희망 미정 시 불안/포기 극단적 양상"}
-   - 도달 목표: ${learnerPersona?.attainmentGoal || '자신의 성향/관심사를 진로 탐색의 출발점으로 이해, 직업 미결정해도 다양한 진로 경로 탐색 태도 형성'}
-   - 하위 30%(성취수준 C 대상) 학생들이 소외되거나 부담을 느끼지 않도록 스몰스텝(Small Steps)과 친근한 활동지를 구성합니다.
-   - 상위 20%(성취수준 A 대상) 학생들을 위한 주도적 심화 탐색 과제도 명확히 명시합니다.
-5. 모든 문장은 현장 교사가 5분 내 다듬어 바로 수업 및 평가계획서에 반영할 수 있도록 완성도 높게 한국어로 작성합니다.
+당신은 대한민국 최고의 수업 설계 및 교육평가 전문가입니다.
+기존 수업 설계 데이터와 교사의 보강/수정 요청사항을 받아, 기존 맥락과 정합성을 유지하면서 지정된 요청을 충실히 반영하여 수정된 완벽한 JSON 수업 설계 데이터를 다시 작성해 주세요.
+수정 후에도 목표-활동-평가의 1:1 수직 정합성과 학습자 페르소나 지원 전략이 완벽히 유지되어야 합니다.
     `.trim();
 
     const prompt = `
-[입력 데이터]
-- 성취기준 코드 및 내용: ${achievementStandardCode} ${achievementStandardContent}
-- 성취수준 타겟 설정: ${targetAchievementLevel}
-- 공식 성취기준별 성취수준 (A, B, C):
-  ${selectedLevelText || '공식 성취수준 A, B, C 반영'}
-- 희망 차시 수: ${lessonCount}차시
-- 희망 평가 방식: ${assessmentMethod}
-- 교사 추가 요청사항: ${additionalNotes || '없음'}
+[기존 수업 설계 데이터]
+${JSON.stringify(currentPlan, null, 2)}
 
-[학습자 페르소나 상세]
-- 학년 및 환경: ${learnerPersona?.targetGrade || '중학교 1학년 (남녀 공학)'}
-- 진로 성숙도/편차: ${learnerPersona?.careerMaturity || ''}
-- 학습 특성 및 오개념: ${learnerPersona?.learningTraitsAndMisconceptions || ''}
-- 도달 목표: ${learnerPersona?.attainmentGoal || ''}
+[교사의 보강 요청사항]
+- 보강 대상 영역: ${sectionTarget || '전체'}
+- 보강 지시: ${instruction}
 
-위 조건에 맞추어 정확히 지정된 JSON 구조로 수업 설계 결과(성취기준 분해, 정합성 검증, 차시별 카드 ${lessonCount}개, 수행 루브릭, 보완 발문)를 생성해 주세요.
+교사의 보강 요청을 엄격하게 반영하되, 지정된 JSON schema 포맷을 완벽하게 유지하여 수정된 전체 수업 설계안 JSON을 반환해 주세요.
     `.trim();
 
     const response = await ai.models.generateContent({
@@ -194,7 +160,7 @@ export default async function handler(req: any, res: any) {
         systemInstruction,
         responseMimeType: 'application/json',
         responseSchema: responseSchema as any,
-        temperature: 0.2,
+        temperature: 0.3,
       },
     });
 
@@ -203,10 +169,10 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json({ success: true, data: resultData });
   } catch (error: any) {
-    console.error('Error in /api/generate-lesson-plan:', error);
+    console.error('Error in /api/refine-lesson-plan:', error);
     return res.status(500).json({
       success: false,
-      error: error?.message || '수업 설계안 생성 중 오류가 발생했습니다.',
+      error: error?.message || '수업 설계 보강 중 오류가 발생했습니다.',
     });
   }
 }
