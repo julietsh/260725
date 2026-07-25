@@ -1,0 +1,6 @@
+{
+  "name": "성취기준 차시 설계 도우미",
+  "description": "성취기준을 입력하면 중학교 1학년 등 학습자 페르소나 및 정합성 검증 규칙을 적용하여 차시 목표·활동·평가가 정렬된 설계 카드, 루브릭, 보완 발문을 생성해 주는 교사용 웹 도구",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
